@@ -14,6 +14,16 @@ function buildQuery(params: Record<string, string | number | undefined>) {
   return `/search${qs ? `?${qs}` : ''}`;
 }
 
+function getHost(url?: string): string | null {
+  try {
+    if (!url) return null;
+    const u = new URL(url);
+    return u.host;
+  } catch {
+    return null;
+  }
+}
+
 export default function SearchBar() {
   const t = useTranslations();
   const [q, setQ] = useState('');
@@ -31,7 +41,8 @@ export default function SearchBar() {
         max_price: maxPrice ? Number(maxPrice) : undefined,
         tag: tag || undefined,
         skin_type: skinType || undefined,
-        ingredient: ingredient || undefined
+        ingredient: ingredient || undefined,
+        limit: 50,
       }),
     [q, minPrice, maxPrice, tag, skinType, ingredient]
   );
@@ -126,19 +137,35 @@ export default function SearchBar() {
             <p>Loading...</p>
           ) : data?.products?.length ? (
             <ul className="divide-y">
-              {data.products.map((p: any) => (
-                <li key={`prod-${p.id}`} className="py-2">
-                  <div className="font-medium">{p.name}</div>
-                  {p.price_amount != null ? (
-                    <div className="text-sm">{p.price_amount} {p.price_currency}</div>
-                  ) : null}
-                  {p.url ? (
-                    <a className="text-[color:var(--primary)] underline" href={p.url} target="_blank" rel="noreferrer">
-                      {p.url}
-                    </a>
-                  ) : null}
-                </li>
-              ))}
+              {data.products.map((p: any) => {
+                const host = getHost(p.url || undefined);
+                return (
+                  <li key={`prod-${p.id}`} className="py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="font-medium">{p.name}</div>
+                      {p.price_amount != null ? (
+                        <div className="text-sm whitespace-nowrap">{p.price_amount} {p.price_currency}</div>
+                      ) : null}
+                    </div>
+                    {host ? <div className="text-xs text-[color:var(--muted)]">{host}</div> : null}
+                    {p.url ? (
+                      <a className="text-[color:var(--primary)] underline break-all" href={p.url} target="_blank" rel="noreferrer">
+                        {p.url}
+                      </a>
+                    ) : null}
+                    {Array.isArray(p.inci) && p.inci.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {p.inci.slice(0, 12).map((ing: string, idx: number) => (
+                          <span key={`${p.id}-ing-${idx}`} className="badge">{ing}</span>
+                        ))}
+                        {p.inci.length > 12 ? (
+                          <span className="badge">+{p.inci.length - 12}</span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-sm text-[color:var(--muted)]">{t('results.empty')}</p>
