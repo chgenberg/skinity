@@ -8,9 +8,14 @@ from .base import BaseScraper
 
 
 CATEGORY_STOP_SLUGS = {
+    # generic categories
     "makeup", "smink", "hudvard", "hudvård", "harvard", "hårvård", "parfym", "doft",
     "presenttips", "presentkort", "kampanj", "nyheter", "varumarken", "varumärken",
     "sminkverktyg", "ansiktsvard", "ansiktsvård", "kroppsvard", "kroppsvård",
+    # site/about/misc
+    "om-kicks", "press", "jobb", "jobba-hos-kicks", "integritetspolicy", "cookies",
+    "kundservice", "samarbeta-med-oss", "vinnare", "klubb", "club", "kicks-club",
+    "hallbarhet", "h  e5llbarhet", "tavlingsvillkor", "t  e4vlingsvillkor",
 }
 
 
@@ -26,9 +31,26 @@ class KicksCatalogScraper(BaseScraper):
         netloc = urlparse(self._absolute(href)).netloc
         return netloc.endswith("kicks.se")
 
+    def _looks_like_brand(self, slug: str) -> bool:
+        """Fetch the candidate brand page and ensure it contains product links under /{slug}/..."""
+        try:
+            html = self.fetch_html(self._absolute(f"/{slug}"))
+        except Exception:
+            return False
+        soup = BeautifulSoup(html, "lxml")
+        count = 0
+        for a in soup.find_all("a", href=True):
+            path = urlparse(self._absolute(a.get("href") or "")).path.rstrip("/")
+            segs = [s for s in path.split("/") if s]
+            if len(segs) >= 2 and segs[0] == slug:
+                count += 1
+                if count >= 5:
+                    return True
+        return False
+
     def list_brands(self, max_brands: int | None = None) -> List[Tuple[str, str]]:
         """Return list of (brand_slug, brand_url) discovered on /varumarken.
-        Filters out known category slugs and keeps only single-segment paths.
+        Filters out known category slugs and keeps only single-segment paths, then verifies page contains products.
         """
         html = self.fetch_html(self._absolute("/varumarken"))
         soup = BeautifulSoup(html, "lxml")
@@ -44,20 +66,18 @@ class KicksCatalogScraper(BaseScraper):
             path = urlparse(self._absolute(href)).path.rstrip("/")
             if not path or path in {"/", "/varumarken"}:
                 continue
-            # Keep only single-segment candidates like '/abercrombie-fitch'
             segments = [s for s in path.split("/") if s]
             if len(segments) != 1:
                 continue
             slug = segments[0]
-            # Exclude obvious categories and generic entries
-            if slug in CATEGORY_STOP_SLUGS:
+            if slug in CATEGORY_STOP_SLUGS or (text and text in CATEGORY_STOP_SLUGS):
                 continue
-            if text and text in CATEGORY_STOP_SLUGS:
-                continue
-            # Basic slug sanity
             if not re.fullmatch(r"[a-z0-9-]{2,}", slug):
                 continue
             if slug in seen:
+                continue
+            # Verify the page actually lists products for this slug
+            if not self._looks_like_brand(slug):
                 continue
             seen.add(slug)
             results.append((slug, self._absolute(path)))
