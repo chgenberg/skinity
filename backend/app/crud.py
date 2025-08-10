@@ -1,5 +1,6 @@
 from typing import Iterable, Optional, Sequence
 from sqlmodel import Session, select
+from sqlalchemy import cast, String
 from .models import Provider, Product
 
 
@@ -41,7 +42,8 @@ def list_providers(
     if country:
         statement = statement.where(Provider.country == country)
     if tag:
-        statement = statement.where(Provider.tags.contains([tag]))
+        # Robust text match on JSON/text column
+        statement = statement.where(cast(Provider.tags, String).ilike(f"%{tag}%"))
     if q:
         like = f"%{q}%"
         statement = statement.where(Provider.name.ilike(like) | Provider.description.ilike(like))
@@ -87,10 +89,10 @@ def list_products(
     if max_price is not None:
         statement = statement.where(Product.price_amount <= max_price)
     if tag:
-        statement = statement.where(Product.tags.contains([tag]))
+        statement = statement.where(cast(Product.tags, String).ilike(f"%{tag}%"))
     if skin_type:
-        statement = statement.where(Product.skin_types.contains([skin_type]))
+        statement = statement.where(cast(Product.skin_types, String).ilike(f"%{skin_type}%"))
     if ingredient:
-        statement = statement.where(Product.inci.contains([ingredient]))
+        statement = statement.where(cast(Product.inci, String).ilike(f"%{ingredient}%"))
     statement = statement.limit(limit).offset(offset)
     return session.exec(statement).all() 
