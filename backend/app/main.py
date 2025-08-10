@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
 from sqlmodel import Session
 from .config import get_settings
 from .database import create_db_and_tables, get_session
@@ -106,4 +108,38 @@ def run_single_domain(domain: str, limit: int = 50, session: Session = Depends(g
         )
         create_product(session, product)
         created += 1
-    return {"created": created, "domain": domain} 
+    return {"created": created, "domain": domain}
+
+
+class URLList(BaseModel):
+    urls: List[str]
+    domain: str | None = None
+
+
+@app.post("/api/scrape/run_urls")
+def run_urls(payload: URLList, session: Session = Depends(get_session)):
+    domain = payload.domain or (payload.urls[0].split("/")[2] if payload.urls else "unknown")
+    scraper = GenericJSONLDScraper(domain=domain, max_pages=len(payload.urls))
+    created = 0
+    for url in payload.urls:
+        try:
+            item = scraper.scrape_url(url)
+        except Exception:
+            continue
+        if not item:
+            continue
+        provider = get_or_create_provider_by_name(session, item.provider_name)
+        if item.url and get_product_by_url(session, item.url):
+            continue
+        product = Product(
+            provider_id=provider.id,
+            name=item.name,
+            url=item.url,
+            price_amount=item.price_amount,
+            price_currency=item.price_currency,
+            tags=["scraped", domain],
+            inci=item.inci,
+        )
+        create_product(session, product)
+        created += 1
+    return {"created": created, "count": len(payload.urls), "domain": domain} 

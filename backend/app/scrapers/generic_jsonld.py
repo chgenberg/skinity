@@ -188,35 +188,40 @@ class GenericJSONLDScraper(BaseScraper):
         results: List[ScrapedProduct] = []
         for url in urls[: self.max_pages]:
             try:
-                html = self.fetch_html(url)
-                pdata = self._extract_jsonld_product(html)
-                if not pdata:
-                    pdata = self._extract_html_fallback(html)
-                    if not pdata:
-                        continue
-                brand_name = None
-                brand = pdata.get("brand")
-                if isinstance(brand, dict):
-                    brand_name = brand.get("name")
-                elif isinstance(brand, str):
-                    brand_name = brand
-                name = pdata.get("name") or pdata.get("sku") or url
-                offers = pdata.get("offers")
-                price = None
-                currency = None
-                if isinstance(offers, dict):
-                    price = offers.get("price") or offers.get("lowPrice")
-                    currency = offers.get("priceCurrency")
-                inci = self._extract_inci(pdata) if pdata else None
-                scraped = ScrapedProduct(
-                    brand_name or self.domain,
-                    name,
-                    url,
-                    float(price) if price else None,
-                    currency or "SEK",
-                    inci,
-                )
-                results.append(scraped)
+                result = self.scrape_url(url)
+                if result:
+                    results.append(result)
             except Exception:
                 continue
-        return results 
+        return results
+
+    # NEW: scrape a single URL
+    def scrape_url(self, url: str) -> Optional[ScrapedProduct]:
+        html = self.fetch_html(url)
+        pdata = self._extract_jsonld_product(html)
+        if not pdata:
+            pdata = self._extract_html_fallback(html)
+            if not pdata:
+                return None
+        brand_name = None
+        brand = pdata.get("brand")
+        if isinstance(brand, dict):
+            brand_name = brand.get("name")
+        elif isinstance(brand, str):
+            brand_name = brand
+        name = pdata.get("name") or pdata.get("sku") or url
+        offers = pdata.get("offers")
+        price = None
+        currency = None
+        if isinstance(offers, dict):
+            price = offers.get("price") or offers.get("lowPrice")
+            currency = offers.get("priceCurrency")
+        inci = self._extract_inci(pdata) if pdata else None
+        return ScrapedProduct(
+            brand_name or self.domain,
+            name,
+            url,
+            float(price) if price else None,
+            currency or "SEK",
+            inci,
+        ) 
