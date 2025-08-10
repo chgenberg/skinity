@@ -12,6 +12,7 @@ from .routers import providers, products, search, health
 from .scrapers.example import ExampleScraper
 from .scrapers.generic_jsonld import GenericJSONLDScraper
 from .scrapers.kicks_catalog import KicksCatalogScraper
+from .scrapers.lyko_catalog import LykoCatalogScraper
 from .scrapers.registry import TARGET_DOMAINS
 from .models import Provider, Product
 from .crud import create_provider, create_product, get_or_create_provider_by_name, get_product_by_url
@@ -169,4 +170,23 @@ def kicks_catalog_csv(max_brands: int | None = 50, max_pages_per_brand: int = 2)
 @app.get("/api/kicks/brands.json")
 def kicks_brands_json():
     scraper = KicksCatalogScraper()
-    return JSONResponse(scraper.list_brand_roots()) 
+    return JSONResponse(scraper.list_brand_roots())
+
+@app.get("/api/lyko/brands.json")
+def lyko_brands_json():
+    scraper = LykoCatalogScraper()
+    return JSONResponse(scraper.list_brand_roots())
+
+@app.get("/api/lyko/brands.csv")
+def lyko_brands_csv():
+    scraper = LykoCatalogScraper()
+    urls = scraper.list_brand_roots()
+    def generate() -> Iterator[bytes]:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["brand_url"])
+        for u in urls:
+            writer.writerow([u])
+        yield buffer.getvalue().encode("utf-8")
+    return StreamingResponse(generate(), media_type="text/csv",
+                              headers={"Content-Disposition": "attachment; filename=lyko_brands.csv"}) 
