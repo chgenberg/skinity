@@ -27,7 +27,11 @@ class ScrapedProduct:
 class BaseScraper:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.client = httpx.Client(headers={"User-Agent": self.settings.scraper_user_agent}, timeout=20)
+        self.client = httpx.Client(
+            headers={"User-Agent": self.settings.scraper_user_agent},
+            timeout=20,
+            follow_redirects=True,
+        )
 
     def close(self) -> None:
         self.client.close()

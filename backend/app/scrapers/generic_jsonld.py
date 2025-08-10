@@ -4,11 +4,12 @@ from urllib.parse import urlparse
 import re
 import json
 import xml.etree.ElementTree as ET
+from bs4 import BeautifulSoup
 
 from .base import BaseScraper, ScrapedProduct
 
 
-PRODUCT_KEYWORDS = re.compile(r"product|/p/|/prod/|/artiklar/|/produkt/|/artiklar/|/sku/", re.IGNORECASE)
+PRODUCT_KEYWORDS = re.compile(r"product|/p/|/prod/|/artiklar/|/produkt/|/sku/|/item/|/shop/", re.IGNORECASE)
 
 
 class GenericJSONLDScraper(BaseScraper):
@@ -17,12 +18,27 @@ class GenericJSONLDScraper(BaseScraper):
         self.domain = domain
         self.max_pages = max_pages
 
+    def _robots_sitemaps(self) -> List[str]:
+        candidates = [f"https://{self.domain}/robots.txt", f"https://www.{self.domain}/robots.txt"]
+        urls: List[str] = []
+        for r in candidates:
+            try:
+                txt = self.fetch_html(r)
+                for line in txt.splitlines():
+                    if line.lower().startswith("sitemap:"):
+                        u = line.split(":", 1)[1].strip()
+                        if u and u not in urls:
+                            urls.append(u)
+            except Exception:
+                continue
+        return urls
+
     def _sitemap_urls(self) -> List[str]:
         roots = [
             f"https://{self.domain}/sitemap.xml",
             f"https://www.{self.domain}/sitemap.xml",
             f"http://{self.domain}/sitemap.xml",
-        ]
+        ] + self._robots_sitemaps()
         seen: set[str] = set()
         found: List[str] = []
         for root in roots:
@@ -61,21 +77,17 @@ class GenericJSONLDScraper(BaseScraper):
         return urls
 
     def _extract_inci(self, pdata: dict) -> Optional[list[str]]:
-        # Try common places
-        # 1) additionalProperty (GS1/Schema.org pattern)
         props = pdata.get("additionalProperty")
-        items = []
+        items: list[str] = []
         if isinstance(props, list):
             for p in props:
                 if isinstance(p, dict) and str(p.get("name", "")).lower() in {"inci", "ingredients"}:
                     val = p.get("value")
                     if isinstance(val, str):
                         items.extend([s.strip() for s in re.split(r",|;|\n", val) if s.strip()])
-        # 2) ingredients directly
         val = pdata.get("ingredients")
         if isinstance(val, str):
             items.extend([s.strip() for s in re.split(r",|;|\n", val) if s.strip()])
-        # 3) hasIngredient list
         has_ing = pdata.get("hasIngredient")
         if isinstance(has_ing, list):
             for v in has_ing:
@@ -86,6 +98,7 @@ class GenericJSONLDScraper(BaseScraper):
         return list(dict.fromkeys(items)) if items else None
 
     def _extract_jsonld_product(self, html: str) -> Optional[dict]:
+        # 1) Fast scan
         try:
             start_tag = '<script type="application/ld+json">'
             pos = 0
@@ -100,6 +113,21 @@ class GenericJSONLDScraper(BaseScraper):
                 pos = end + 9
                 try:
                     data = json.loads(chunk)
+                except Exception:
+                    continue
+                candidates = data if isinstance(data, list) else [data]
+                for c in candidates:
+                    t = c.get("@type")
+                    if t == "Product" or (isinstance(t, list) and "Product" in t):
+                        return c
+        except Exception:
+            pass
+        # 2) Robust parse via BeautifulSoup
+        try:
+            soup = BeautifulSoup(html, "lxml")
+            for script in soup.find_all("script", {"type": "application/ld+json"}):
+                try:
+                    data = json.loads(script.string or "{}")
                 except Exception:
                     continue
                 candidates = data if isinstance(data, list) else [data]
