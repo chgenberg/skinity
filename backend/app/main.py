@@ -189,4 +189,10 @@ def lyko_brands_csv():
             writer.writerow([u])
         yield buffer.getvalue().encode("utf-8")
     return StreamingResponse(generate(), media_type="text/csv",
-                              headers={"Content-Disposition": "attachment; filename=lyko_brands.csv"}) 
+                              headers={"Content-Disposition": "attachment; filename=lyko_brands.csv"})
+
+@app.get("/api/lyko/brand_products")
+def lyko_brand_products(brand_root: str, limit: int = 100):
+    scraper = LykoCatalogScraper()
+    urls = scraper.list_brand_products(brand_root=brand_root, limit=limit)
+    return {"brand_root": brand_root, "count": len(urls), "urls": urls} 
