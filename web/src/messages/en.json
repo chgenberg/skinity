@@ -1,0 +1,24 @@
+{
+  "app": {
+    "title": "Compare Skincare",
+    "subtitle": "Search, filter and compare products and brands"
+  },
+  "search": {
+    "placeholder": "Search products or brands...",
+    "minPrice": "Min price",
+    "maxPrice": "Max price",
+    "tag": "Tag",
+    "skinType": "Skin type",
+    "ingredient": "INCI ingredient",
+    "apply": "Search"
+  },
+  "results": {
+    "providers": "Brands",
+    "products": "Products",
+    "empty": "No results found"
+  },
+  "compare": {
+    "add": "Add to compare",
+    "clear": "Clear compare"
+  }
+} 

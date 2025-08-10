@@ -1,0 +1,24 @@
+{
+  "app": {
+    "title": "Jämför hudvård",
+    "subtitle": "Sök, filtrera och jämför produkter och varumärken"
+  },
+  "search": {
+    "placeholder": "Sök produkter eller varumärken...",
+    "minPrice": "Minpris",
+    "maxPrice": "Maxpris",
+    "tag": "Tagg",
+    "skinType": "Hudtyp",
+    "ingredient": "INCI-ämne",
+    "apply": "Sök"
+  },
+  "results": {
+    "providers": "Varumärken",
+    "products": "Produkter",
+    "empty": "Inget resultat hittades"
+  },
+  "compare": {
+    "add": "Lägg till i jämförelse",
+    "clear": "Rensa jämförelse"
+  }
+} 
