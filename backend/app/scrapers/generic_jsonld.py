@@ -139,6 +139,50 @@ class GenericJSONLDScraper(BaseScraper):
             return None
         return None
 
+    def _extract_html_fallback(self, html: str) -> Optional[dict]:
+        try:
+            soup = BeautifulSoup(html, "lxml")
+            # Name
+            name = None
+            og_title = soup.find("meta", property="og:title")
+            if og_title and og_title.get("content"):
+                name = og_title["content"].strip()
+            if not name and soup.title:
+                name = soup.title.text.strip()
+
+            # Price & currency from common meta/itemprop
+            price = None
+            currency = None
+            mp = soup.find("meta", property="product:price:amount") or soup.find("meta", itemprop="price")
+            if mp and mp.get("content"):
+                price = mp["content"].strip()
+            mc = soup.find("meta", property="product:price:currency") or soup.find("meta", itemprop="priceCurrency")
+            if mc and mc.get("content"):
+                currency = mc["content"].strip()
+
+            # Ingredients by heading labels
+            inci: list[str] = []
+            heading = soup.find(string=re.compile(r"Ingredienser|Ingredients", re.IGNORECASE))
+            if heading:
+                # try parent block
+                block = heading.parent
+                if block:
+                    text = block.get_text(" ", strip=True)
+                    # extract after label
+                    parts = re.split(r"Ingredienser|Ingredients", text, flags=re.IGNORECASE)
+                    if len(parts) > 1:
+                        raw = parts[1]
+                        inci = [s.strip() for s in re.split(r",|;|\n", raw) if s.strip()]
+            if not any([name, price, inci]):
+                return None
+            return {
+                "name": name,
+                "offers": {"price": price, "priceCurrency": currency} if price else {},
+                "ingredients": ", ".join(inci) if inci else None,
+            }
+        except Exception:
+            return None
+
     def run(self) -> List[ScrapedProduct]:
         urls = self._sitemap_urls()
         results: List[ScrapedProduct] = []
@@ -147,7 +191,9 @@ class GenericJSONLDScraper(BaseScraper):
                 html = self.fetch_html(url)
                 pdata = self._extract_jsonld_product(html)
                 if not pdata:
-                    continue
+                    pdata = self._extract_html_fallback(html)
+                    if not pdata:
+                        continue
                 brand_name = None
                 brand = pdata.get("brand")
                 if isinstance(brand, dict):
@@ -161,7 +207,7 @@ class GenericJSONLDScraper(BaseScraper):
                 if isinstance(offers, dict):
                     price = offers.get("price") or offers.get("lowPrice")
                     currency = offers.get("priceCurrency")
-                inci = self._extract_inci(pdata)
+                inci = self._extract_inci(pdata) if pdata else None
                 scraped = ScrapedProduct(
                     brand_name or self.domain,
                     name,
