@@ -19,16 +19,22 @@ def search(
     offset: int = 0,
     session: Session = Depends(get_session),
 ) -> Dict[str, List[Any]]:
-    providers = list_providers(session, q=q, limit=limit, offset=offset)
-    products = list_products(
-        session,
-        q=q,
-        min_price=min_price,
-        max_price=max_price,
-        tag=tag,
-        skin_type=skin_type,
-        ingredient=ingredient,
-        limit=limit,
-        offset=offset,
-    )
+    try:
+        providers = list_providers(session, q=q, limit=limit, offset=offset)
+    except Exception:
+        providers = []
+    try:
+        products = list_products(
+            session,
+            q=q,
+            min_price=min_price,
+            max_price=max_price,
+            tag=tag,
+            skin_type=skin_type,
+            ingredient=ingredient,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception:
+        products = []
     return {"providers": providers, "products": products} 
