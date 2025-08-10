@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Iterator
 import csv
@@ -163,4 +163,10 @@ def kicks_catalog_csv(max_brands: int | None = 50, max_pages_per_brand: int = 2)
         yield buffer.getvalue().encode("utf-8")
 
     return StreamingResponse(generate(), media_type="text/csv",
-                              headers={"Content-Disposition": "attachment; filename=kicks_catalog.csv"}) 
+                              headers={"Content-Disposition": "attachment; filename=kicks_catalog.csv"})
+
+
+@app.get("/api/kicks/brands.json")
+def kicks_brands_json():
+    scraper = KicksCatalogScraper()
+    return JSONResponse(scraper.list_brand_roots()) 

@@ -31,6 +31,29 @@ class KicksCatalogScraper(BaseScraper):
         netloc = urlparse(self._absolute(href)).netloc
         return netloc.endswith("kicks.se")
 
+    def list_brand_roots(self) -> List[str]:
+        """Return absolute URLs for brand root pages like /aco, /abercrombie-fitch, sorted A-Z."""
+        html = self.fetch_html(self._absolute("/varumarken"))
+        soup = BeautifulSoup(html, "lxml")
+        slugs: set[str] = set()
+        for a in soup.find_all("a", href=True):
+            href = a.get("href") or ""
+            if not href or href.startswith("#"):
+                continue
+            if not self._is_internal(href):
+                continue
+            path = urlparse(self._absolute(href)).path.rstrip("/")
+            segs = [s for s in path.split("/") if s]
+            if len(segs) != 1:
+                continue
+            slug = segs[0]
+            if slug in CATEGORY_STOP_SLUGS:
+                continue
+            if not re.fullmatch(r"[a-z0-9-]{2,}", slug):
+                continue
+            slugs.add(slug)
+        return [self._absolute(f"/{s}") for s in sorted(slugs)]
+
     def _looks_like_brand(self, slug: str) -> bool:
         """Fetch the candidate brand page and ensure it contains product links under /{slug}/..."""
         try:
