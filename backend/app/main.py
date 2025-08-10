@@ -5,7 +5,9 @@ from pydantic import BaseModel
 from typing import List, Iterator
 import csv
 import io
-from sqlmodel import Session
+from sqlmodel import Session, select
+from sqlalchemy import cast, String
+from urllib.parse import urlparse
 from .config import get_settings
 from .database import create_db_and_tables, get_session
 from .routers import providers, products, search, health
@@ -195,4 +197,49 @@ def lyko_brands_csv():
 def lyko_brand_products(brand_root: str, limit: int = 100):
     scraper = LykoCatalogScraper()
     urls = scraper.list_brand_products(brand_root=brand_root, limit=limit)
-    return {"brand_root": brand_root, "count": len(urls), "urls": urls} 
+    return {"brand_root": brand_root, "count": len(urls), "urls": urls}
+
+
+@app.post("/api/scrape/enrich_missing")
+def enrich_missing(tag: str | None = None, limit: int = 100, session: Session = Depends(get_session)):
+    """Enrich existing products by scraping their URLs and updating missing price/currency/INCI.
+    Optionally filter by tag (e.g., 'lyko.com').
+    """
+    stmt = select(Product).where(
+        (Product.inci == None) | (Product.price_amount == None) | (Product.price_currency == None)
+    )
+    if tag:
+        stmt = stmt.where(cast(Product.tags, String).ilike(f"%{tag}%"))
+    stmt = stmt.limit(limit)
+    products_to_fix = session.exec(stmt).all()
+
+    updated = 0
+    scrapers: dict[str, GenericJSONLDScraper] = {}
+
+    for p in products_to_fix:
+        if not p.url:
+            continue
+        domain = urlparse(p.url).netloc
+        if domain not in scrapers:
+            scrapers[domain] = GenericJSONLDScraper(domain=domain, max_pages=1)
+        try:
+            item = scrapers[domain].scrape_url(p.url)
+        except Exception:
+            continue
+        if not item:
+            continue
+        changed = False
+        if item.price_amount is not None and p.price_amount is None:
+            p.price_amount = item.price_amount
+            changed = True
+        if item.price_currency and (p.price_currency is None or p.price_currency == "SEK"):
+            p.price_currency = item.price_currency
+            changed = True
+        if item.inci and not p.inci:
+            p.inci = item.inci
+            changed = True
+        if changed:
+            session.add(p)
+            session.commit()
+            updated += 1
+    return {"checked": len(products_to_fix), "updated": updated} 
