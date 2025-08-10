@@ -82,4 +82,28 @@ def run_all_scrapers(limit_per_domain: int = 50, session: Session = Depends(get_
             )
             create_product(session, product)
             total_created += 1
-    return {"created": total_created, "domains": TARGET_DOMAINS} 
+    return {"created": total_created, "domains": TARGET_DOMAINS}
+
+
+@app.post("/api/scrape/run_domain")
+def run_single_domain(domain: str, limit: int = 50, session: Session = Depends(get_session)):
+    """Scrape a single domain, e.g., kicks.se or kicks.com, with a page limit."""
+    scraper = GenericJSONLDScraper(domain=domain, max_pages=limit)
+    items = scraper.run()
+    created = 0
+    for it in items:
+        provider = get_or_create_provider_by_name(session, it.provider_name)
+        if it.url and get_product_by_url(session, it.url):
+            continue
+        product = Product(
+            provider_id=provider.id,
+            name=it.name,
+            url=it.url,
+            price_amount=it.price_amount,
+            price_currency=it.price_currency,
+            tags=["scraped", domain],
+            inci=it.inci,
+        )
+        create_product(session, product)
+        created += 1
+    return {"created": created, "domain": domain} 
