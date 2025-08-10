@@ -10,6 +10,7 @@
   --primary: #0b8f68;
   --primary-ink: #ffffff;
   --ring: rgba(11, 143, 104, 0.35);
+  --banner-h: 36px;
 }
 
 @theme inline {
@@ -82,4 +83,26 @@ body {
   @apply rounded-full px-3 py-1 text-sm;
   background: var(--surface-2);
   color: var(--muted);
+}
+
+/***** Marquee banner *****/
+.banner-marquee {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #000;
+  color: #fff;
+  height: var(--banner-h);
+  overflow: hidden;
+}
+.banner-track {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+  padding-left: 100%;
+  animation: banner-marquee 15s linear infinite;
+}
+@keyframes banner-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
 }
