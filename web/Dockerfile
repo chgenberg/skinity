@@ -1,17 +1,27 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine AS base
+
+# Build stage (needs devDependencies like @tailwindcss/postcss)
+FROM node:20-alpine AS builder
 WORKDIR /app
-ENV NODE_ENV=production
-
-# Install deps
 COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy source and build
+RUN npm ci
 COPY . .
 RUN npm run build
 
-# Runtime
+# Runtime stage (production deps only)
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
 ENV PORT=8080
+
+# Install only production deps
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy built assets
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.ts ./next.config.ts
+
 EXPOSE 8080
 CMD ["npm", "run", "start", "--", "-p", "8080"] 
