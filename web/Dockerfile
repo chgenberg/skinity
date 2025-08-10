@@ -22,6 +22,7 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./next.config.ts
+COPY --from=builder /app/next-intl.config.js ./next-intl.config.js
 
 EXPOSE 8080
 CMD ["npm", "run", "start", "--", "-p", "8080"] 
