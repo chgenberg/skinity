@@ -15,7 +15,7 @@ CATEGORY_STOP_SLUGS = {
     # site/about/misc
     "om-kicks", "press", "jobb", "jobba-hos-kicks", "integritetspolicy", "cookies",
     "kundservice", "samarbeta-med-oss", "vinnare", "klubb", "club", "kicks-club",
-    "hallbarhet", "h  e5llbarhet", "tavlingsvillkor", "t  e4vlingsvillkor",
+    "hallbarhet", "h\u00e5llbarhet", "tavlingsvillkor", "t\u00e4vlingsvillkor",
 }
 
 
@@ -38,14 +38,11 @@ class KicksCatalogScraper(BaseScraper):
         except Exception:
             return False
         soup = BeautifulSoup(html, "lxml")
-        count = 0
         for a in soup.find_all("a", href=True):
             path = urlparse(self._absolute(a.get("href") or "")).path.rstrip("/")
             segs = [s for s in path.split("/") if s]
             if len(segs) >= 2 and segs[0] == slug:
-                count += 1
-                if count >= 5:
-                    return True
+                return True
         return False
 
     def list_brands(self, max_brands: int | None = None) -> List[Tuple[str, str]]:
@@ -55,7 +52,8 @@ class KicksCatalogScraper(BaseScraper):
         html = self.fetch_html(self._absolute("/varumarken"))
         soup = BeautifulSoup(html, "lxml")
         seen: set[str] = set()
-        results: List[Tuple[str, str]] = []
+        verified: List[Tuple[str, str]] = []
+        candidates: List[Tuple[str, str]] = []
         for a in soup.find_all("a", href=True):
             href = a.get("href") or ""
             text = (a.get_text(strip=True) or "").lower()
@@ -76,14 +74,16 @@ class KicksCatalogScraper(BaseScraper):
                 continue
             if slug in seen:
                 continue
-            # Verify the page actually lists products for this slug
-            if not self._looks_like_brand(slug):
-                continue
             seen.add(slug)
-            results.append((slug, self._absolute(path)))
-            if max_brands and len(results) >= max_brands:
-                break
-        return results
+            candidates.append((slug, self._absolute(path)))
+            if self._looks_like_brand(slug):
+                verified.append((slug, self._absolute(path)))
+                if max_brands and len(verified) >= max_brands:
+                    return verified
+        # Fallback: if verification yields nothing, return top candidates (up to max_brands)
+        if not verified:
+            return candidates[: (max_brands or len(candidates))]
+        return verified
 
     def list_brand_products(self, brand_slug: str, max_pages: int = 5) -> List[str]:
         """Return product URLs for a given brand by crawling brand listing pages."""
