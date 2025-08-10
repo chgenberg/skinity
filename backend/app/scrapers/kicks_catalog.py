@@ -1,0 +1,88 @@
+from __future__ import annotations
+from typing import Iterable, List, Tuple
+from urllib.parse import urljoin, urlparse
+import re
+from bs4 import BeautifulSoup
+
+from .base import BaseScraper
+
+
+class KicksCatalogScraper(BaseScraper):
+    def __init__(self, base_url: str = "https://www.kicks.se") -> None:
+        super().__init__()
+        self.base_url = base_url.rstrip("/")
+
+    def _absolute(self, href: str) -> str:
+        return urljoin(self.base_url + "/", href)
+
+    def _is_internal(self, href: str) -> bool:
+        netloc = urlparse(self._absolute(href)).netloc
+        return netloc.endswith("kicks.se")
+
+    def list_brands(self, max_brands: int | None = None) -> List[Tuple[str, str]]:
+        """Return list of (brand_slug, brand_url)."""
+        html = self.fetch_html(self._absolute("/varumarken"))
+        soup = BeautifulSoup(html, "lxml")
+        seen: set[str] = set()
+        results: List[Tuple[str, str]] = []
+        for a in soup.find_all("a", href=True):
+            href = a.get("href") or ""
+            if not href or href.startswith("#"):
+                continue
+            if not self._is_internal(href):
+                continue
+            path = urlparse(self._absolute(href)).path.rstrip("/")
+            if not path or path in {"/", "/varumarken"}:
+                continue
+            # Heuristic: a brand root looks like '/abercrombie-fitch'
+            segments = [s for s in path.split("/") if s]
+            if len(segments) != 1:
+                continue
+            slug = segments[0]
+            if slug in seen:
+                continue
+            seen.add(slug)
+            results.append((slug, self._absolute(path)))
+            if max_brands and len(results) >= max_brands:
+                break
+        return results
+
+    def list_brand_products(self, brand_slug: str, max_pages: int = 5) -> List[str]:
+        """Return product URLs for a given brand by crawling brand listing pages."""
+        collected: set[str] = set()
+        page = 1
+        while page <= max_pages:
+            url = self._absolute(f"/{brand_slug}?page={page}") if page > 1 else self._absolute(f"/{brand_slug}")
+            try:
+                html = self.fetch_html(url)
+            except Exception:
+                break
+            soup = BeautifulSoup(html, "lxml")
+            # Product links: anchors whose href starts with '/{brand}/' and has deeper segments
+            for a in soup.find_all("a", href=True):
+                href = a.get("href") or ""
+                if not href or not self._is_internal(href):
+                    continue
+                path = urlparse(self._absolute(href)).path.rstrip("/")
+                segs = [s for s in path.split("/") if s]
+                if len(segs) >= 2 and segs[0] == brand_slug:
+                    # likely a PDP if depth >= 2
+                    # Skip obvious non-PDP like filters or images
+                    if any(x in path for x in ["/filter", "/filtrera", "/bilder", "/image"]):
+                        continue
+                    collected.add(self._absolute(path))
+            # Detect next page; stop if no growth
+            page += 1
+        return sorted(collected)
+
+    def list_all_products(self, max_brands: int | None = None, max_pages_per_brand: int = 3) -> List[Tuple[str, str]]:
+        """Return list of (brand_slug, product_url) across brands."""
+        pairs: List[Tuple[str, str]] = []
+        for slug, _ in self.list_brands(max_brands=max_brands):
+            try:
+                urls = self.list_brand_products(slug, max_pages=max_pages_per_brand)
+            except Exception:
+                continue
+            for u in urls:
+                pairs.append((slug, u))
+        return pairs 

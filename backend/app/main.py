@@ -1,13 +1,17 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List
+from typing import List, Iterator
+import csv
+import io
 from sqlmodel import Session
 from .config import get_settings
 from .database import create_db_and_tables, get_session
 from .routers import providers, products, search, health
 from .scrapers.example import ExampleScraper
 from .scrapers.generic_jsonld import GenericJSONLDScraper
+from .scrapers.kicks_catalog import KicksCatalogScraper
 from .scrapers.registry import TARGET_DOMAINS
 from .models import Provider, Product
 from .crud import create_provider, create_product, get_or_create_provider_by_name, get_product_by_url
@@ -142,4 +146,21 @@ def run_urls(payload: URLList, session: Session = Depends(get_session)):
         )
         create_product(session, product)
         created += 1
-    return {"created": created, "count": len(payload.urls), "domain": domain} 
+    return {"created": created, "count": len(payload.urls), "domain": domain}
+
+
+@app.get("/api/kicks/catalog.csv")
+def kicks_catalog_csv(max_brands: int | None = 50, max_pages_per_brand: int = 2):
+    scraper = KicksCatalogScraper()
+    pairs = scraper.list_all_products(max_brands=max_brands, max_pages_per_brand=max_pages_per_brand)
+
+    def generate() -> Iterator[bytes]:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["brand_slug", "product_url"])
+        for slug, url in pairs:
+            writer.writerow([slug, url])
+        yield buffer.getvalue().encode("utf-8")
+
+    return StreamingResponse(generate(), media_type="text/csv",
+                              headers={"Content-Disposition": "attachment; filename=kicks_catalog.csv"}) 
