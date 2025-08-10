@@ -11,7 +11,7 @@ function buildQuery(params: Record<string, string | number | undefined>) {
     if (v !== undefined && v !== '') usp.append(k, String(v));
   });
   const qs = usp.toString();
-  return `/search${qs ? `?${qs}` : ''}`;
+  return `/search/products${qs ? `?${qs}` : ''}`;
 }
 
 function getHost(url?: string): string | null {
