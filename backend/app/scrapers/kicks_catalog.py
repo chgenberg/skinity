@@ -7,6 +7,13 @@ from bs4 import BeautifulSoup
 from .base import BaseScraper
 
 
+CATEGORY_STOP_SLUGS = {
+    "makeup", "smink", "hudvard", "hudvård", "harvard", "hårvård", "parfym", "doft",
+    "presenttips", "presentkort", "kampanj", "nyheter", "varumarken", "varumärken",
+    "sminkverktyg", "ansiktsvard", "ansiktsvård", "kroppsvard", "kroppsvård",
+}
+
+
 class KicksCatalogScraper(BaseScraper):
     def __init__(self, base_url: str = "https://www.kicks.se") -> None:
         super().__init__()
@@ -20,13 +27,16 @@ class KicksCatalogScraper(BaseScraper):
         return netloc.endswith("kicks.se")
 
     def list_brands(self, max_brands: int | None = None) -> List[Tuple[str, str]]:
-        """Return list of (brand_slug, brand_url)."""
+        """Return list of (brand_slug, brand_url) discovered on /varumarken.
+        Filters out known category slugs and keeps only single-segment paths.
+        """
         html = self.fetch_html(self._absolute("/varumarken"))
         soup = BeautifulSoup(html, "lxml")
         seen: set[str] = set()
         results: List[Tuple[str, str]] = []
         for a in soup.find_all("a", href=True):
             href = a.get("href") or ""
+            text = (a.get_text(strip=True) or "").lower()
             if not href or href.startswith("#"):
                 continue
             if not self._is_internal(href):
@@ -34,11 +44,19 @@ class KicksCatalogScraper(BaseScraper):
             path = urlparse(self._absolute(href)).path.rstrip("/")
             if not path or path in {"/", "/varumarken"}:
                 continue
-            # Heuristic: a brand root looks like '/abercrombie-fitch'
+            # Keep only single-segment candidates like '/abercrombie-fitch'
             segments = [s for s in path.split("/") if s]
             if len(segments) != 1:
                 continue
             slug = segments[0]
+            # Exclude obvious categories and generic entries
+            if slug in CATEGORY_STOP_SLUGS:
+                continue
+            if text and text in CATEGORY_STOP_SLUGS:
+                continue
+            # Basic slug sanity
+            if not re.fullmatch(r"[a-z0-9-]{2,}", slug):
+                continue
             if slug in seen:
                 continue
             seen.add(slug)
@@ -58,7 +76,6 @@ class KicksCatalogScraper(BaseScraper):
             except Exception:
                 break
             soup = BeautifulSoup(html, "lxml")
-            # Product links: anchors whose href starts with '/{brand}/' and has deeper segments
             for a in soup.find_all("a", href=True):
                 href = a.get("href") or ""
                 if not href or not self._is_internal(href):
@@ -66,12 +83,9 @@ class KicksCatalogScraper(BaseScraper):
                 path = urlparse(self._absolute(href)).path.rstrip("/")
                 segs = [s for s in path.split("/") if s]
                 if len(segs) >= 2 and segs[0] == brand_slug:
-                    # likely a PDP if depth >= 2
-                    # Skip obvious non-PDP like filters or images
                     if any(x in path for x in ["/filter", "/filtrera", "/bilder", "/image"]):
                         continue
                     collected.add(self._absolute(path))
-            # Detect next page; stop if no growth
             page += 1
         return sorted(collected)
 
