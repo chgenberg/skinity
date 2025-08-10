@@ -45,13 +45,11 @@ export default async function LocaleLayout({
 
         {/* Header under banner, offset via sticky top equal to banner height */}
         <header className="sticky top-[var(--banner-h)] z-30 backdrop-blur-xl/5 supports-[backdrop-filter]:backdrop-blur-xl bg-[color:var(--surface)]/70 border-b border-black/5">
-          <div className="container-padded grid grid-cols-3 h-16 items-center">
-            <div className="flex items-center gap-3">
-              {/* Left placeholder for future nav */}
-            </div>
+          <div className="container-padded grid grid-cols-3 h-20 items-center">
+            <div />
             <div className="flex items-center justify-center">
-              <Link href={`/${locale}`} className="flex items-center gap-3">
-                <Image src="/skinity_logo.png" alt="Skincare Compare" width={40} height={40} className="rounded-md shadow-sm" />
+              <Link href={`/${locale}`} className="flex items-center gap-4 hover-scale">
+                <Image src="/skinity_logo.png" alt="Skincare Compare" width={64} height={64} className="rounded-xl shadow-sm" />
                 <span className="sr-only">Skincare Compare</span>
               </Link>
             </div>
@@ -62,6 +60,14 @@ export default async function LocaleLayout({
             </nav>
           </div>
         </header>
+
+        {/* Hero */}
+        <section className="container-padded pt-8">
+          <div className="card hoverable p-8 md:p-10 text-center">
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2 text-gradient">Jämför hudvård – smartare, snabbare</h1>
+            <p className="text-[color:var(--muted)] max-w-2xl mx-auto">Sök, filtrera och hitta rätt produkter och varumärken baserat på pris, ingredienser och hudtyp.</p>
+          </div>
+        </section>
 
         <main className="container-padded flex-1 py-8">
           <div className="card p-6 md:p-8">

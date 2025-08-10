@@ -38,8 +38,22 @@ export default function SearchBar() {
 
   const {data, isLoading} = useSWR(key, fetcher, {revalidateOnFocus: false});
 
+  function clearFilters() {
+    setQ('');
+    setMinPrice('');
+    setMaxPrice('');
+    setTag('');
+    setSkinType('');
+    setIngredient('');
+  }
+
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-[color:var(--muted)]">{t('results.providers')} & {t('results.products')}</div>
+        <button className="button-ghost" onClick={clearFilters}>Rensa filter</button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <input
           className="input md:col-span-2"
@@ -84,7 +98,7 @@ export default function SearchBar() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="card p-4">
+        <div className="card hoverable p-4">
           <h3 className="font-semibold mb-2">{t('results.providers')}</h3>
           {isLoading ? (
             <p>Loading...</p>
@@ -106,7 +120,7 @@ export default function SearchBar() {
             <p className="text-sm text-[color:var(--muted)]">{t('results.empty')}</p>
           )}
         </div>
-        <div className="card p-4">
+        <div className="card hoverable p-4">
           <h3 className="font-semibold mb-2">{t('results.products')}</h3>
           {isLoading ? (
             <p>Loading...</p>

@@ -44,7 +44,9 @@ html, body {
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(1200px 600px at 20% -10%, rgba(11, 143, 104, 0.12), transparent 60%),
+              radial-gradient(1000px 500px at 110% 10%, rgba(11, 143, 104, 0.08), transparent 60%),
+              var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
   -webkit-font-smoothing: antialiased;
@@ -53,13 +55,17 @@ body {
 
 /***** Primitives *****/
 .container-padded {
-  @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-10;
 }
 
 .card {
   background: var(--surface);
-  @apply rounded-2xl shadow-sm;
+  @apply rounded-2xl shadow-sm transition;
   box-shadow: 0 1px 2px rgba(6, 24, 44, 0.04), 0 8px 24px rgba(6, 24, 44, 0.06);
+}
+.card.hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(6, 24, 44, 0.12);
 }
 
 .input {
@@ -78,6 +84,14 @@ body {
 }
 .button-primary:hover { filter: brightness(0.98); }
 .button-primary:active { transform: translateY(1px); }
+
+.button-ghost {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium transition border;
+  background: var(--surface-2);
+  color: var(--foreground);
+  border-color: rgba(6,24,44,0.06);
+}
+.button-ghost:hover { filter: brightness(0.98); }
 
 .badge {
   @apply rounded-full px-3 py-1 text-sm;
@@ -106,3 +120,15 @@ body {
   0% { transform: translateX(0); }
   100% { transform: translateX(-100%); }
 }
+
+/***** Utilities *****/
+.text-gradient {
+  background: linear-gradient(90deg, #0b8f68, #74c69d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hover-scale {
+  transition: transform 200ms ease;
+}
+.hover-scale:hover { transform: scale(1.05); }
