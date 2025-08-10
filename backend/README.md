@@ -24,4 +24,11 @@ backend/.venv/bin/python -m app.seed -m app --package backend
 - GET `/api/providers/`
 - GET `/api/products/`
 - GET `/api/search/`
-- POST `/api/scrape/run` 
+- POST `/api/scrape/run`
+
+## Railway (Nixpacks)
+- Root Directory: `backend`
+- Build: `pip install -r requirements.txt`
+- Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Variables: `DATABASE_URL`, `CORS_ORIGINS`
+- Procfile present to enforce start command 
